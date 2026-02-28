@@ -38,7 +38,7 @@ jobs:
       - name: Build Next.js app
         working-directory: cricket-score-checker
         env:
-          NEXT_PUBLIC_BASE_PATH: ""
+          NEXT_PUBLIC_BASE_PATH: /angular
         run: npm run build
 
       - name: Upload artifact
