@@ -1,0 +1,253 @@
+<div class="scoreboard-container" *ngIf="match">
+  <!-- Match Header -->
+  <div class="match-header" [ngClass]="'status-' + match.status.toLowerCase()">
+    <div class="match-meta">
+      <span class="match-type-badge">{{ match.matchType }}</span>
+      <span class="match-status-badge" [ngClass]="{'live-badge': match.status === 'Live', 'completed-badge': match.status === 'Completed', 'upcoming-badge': match.status === 'Upcoming'}">
+        <span *ngIf="match.status === 'Live'" class="live-dot"></span>
+        {{ match.status }}
+      </span>
+    </div>
+    <h1 class="match-title">{{ match.title }}</h1>
+    <div class="match-info-row">
+      <span class="venue-info">📍 {{ match.venue }}</span>
+      <span class="date-info">📅 {{ match.date }}</span>
+    </div>
+    <div class="toss-info" *ngIf="match.tossWinner">
+      🪙 Toss: <strong>{{ match.tossWinner }}</strong> won the toss &amp; elected to <strong>{{ match.tossDecision }}</strong>
+    </div>
+  </div>
+
+  <!-- Score Summary Cards -->
+  <div class="score-summary">
+    <div *ngFor="let innings of match.innings; let i = index"
+         class="team-score-card"
+         [ngClass]="{'current-innings': i === match.currentInningsIndex && match.status === 'Live'}">
+      <div class="team-header-row">
+        <span class="team-flag">{{ innings.battingTeam === match.homeTeam ? match.homeTeamFlag : match.awayTeamFlag }}</span>
+        <span class="team-name-display">{{ innings.battingTeam }}</span>
+        <span class="innings-num-label">{{ match.matchType === 'Test' ? 'Innings ' + innings.inningsNumber : '' }}</span>
+      </div>
+      <div class="score-main">
+        <span class="runs-wickets">{{ innings.totalRuns }}/{{ innings.wickets }}</span>
+        <span class="overs-info">({{ innings.overs }}.{{ innings.balls }} ov)</span>
+      </div>
+      <div class="rate-row">
+        <span>CRR: <strong>{{ innings.runRate }}</strong></span>
+        <span *ngIf="innings.targetScore && !innings.isComplete">
+          | Need {{ innings.targetScore - innings.totalRuns }} in {{ (match.matchType === 'T20' ? 20 : 50) - innings.overs - innings.balls/6 | number:'1.0-1' }} ov
+        </span>
+        <span *ngIf="innings.requiredRunRate && !innings.isComplete"> | RRR: <strong>{{ innings.requiredRunRate }}</strong></span>
+      </div>
+      <div class="target-chip" *ngIf="innings.targetScore">
+        Target: {{ innings.targetScore }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Banner -->
+  <div class="result-banner" *ngIf="match.result">
+    <span>🏆</span>
+    <span class="result-text">{{ match.result }}</span>
+    <span *ngIf="match.playerOfMatch" class="mom-text">⭐ Player of the Match: {{ match.playerOfMatch }}</span>
+  </div>
+
+  <!-- Live: Currently At Crease -->
+  <div class="live-players-section" *ngIf="match.status === 'Live' && match.innings[match.currentInningsIndex] as liveInnings">
+    <div class="live-section-header">
+      <span class="live-indicator">🔴 LIVE</span>
+      <span class="live-score-text">{{ match.homeTeamFlag }} {{ match.innings[0].battingTeam === match.homeTeam ? match.innings[0].totalRuns + '/' + match.innings[0].wickets : '' }}</span>
+    </div>
+    <div class="live-tables">
+      <div class="live-batting-table">
+        <h4>At the Crease</h4>
+        <table>
+          <thead>
+            <tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let bat of liveInnings.battingScorecard">
+              <tr *ngIf="!bat.isOut" [ngClass]="{'striker': bat.isOnStrike}">
+                <td class="player-cell">
+                  <span *ngIf="bat.isOnStrike" class="strike-marker">⚡</span>
+                  {{ bat.player.name }}
+                </td>
+                <td class="num-cell bold-runs">{{ bat.runs }}</td>
+                <td class="num-cell">{{ bat.balls }}</td>
+                <td class="num-cell">{{ bat.fours }}</td>
+                <td class="num-cell">{{ bat.sixes }}</td>
+                <td class="num-cell">{{ bat.balls > 0 ? bat.strikeRate : '-' }}</td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+      <div class="live-bowling-table">
+        <h4>Bowling</h4>
+        <table>
+          <thead>
+            <tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Eco</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let bowl of liveInnings.bowlingFigures; let last = last" [ngClass]="{'current-bowler': last}">
+              <td class="player-cell">{{ bowl.player.name }}<span *ngIf="last"> 🎯</span></td>
+              <td class="num-cell">{{ bowl.overs }}</td>
+              <td class="num-cell">{{ bowl.maidens }}</td>
+              <td class="num-cell">{{ bowl.runs }}</td>
+              <td class="num-cell bold-wickets">{{ bowl.wickets }}</td>
+              <td class="num-cell">{{ bowl.economy }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Innings Tabs -->
+  <div class="innings-tabs-bar" *ngIf="match.innings.length > 0">
+    <button *ngFor="let innings of match.innings; let i = index"
+            class="innings-tab-btn"
+            [ngClass]="{'active': selectedInningsIndex === i}"
+            [disabled]="innings.battingScorecard.length === 0"
+            (click)="selectInnings(i)">
+      {{ innings.battingTeam }}
+      {{ match.matchType === 'Test' ? ' Inn ' + innings.inningsNumber : '' }}
+    </button>
+  </div>
+
+  <!-- Full Scorecard -->
+  <div class="full-scorecard-section" *ngIf="selectedInnings">
+
+    <!-- Batting Table -->
+    <div class="scorecard-block">
+      <div class="block-header">
+        <span>🏏</span>
+        <span>{{ selectedInnings.battingTeam }} Batting</span>
+        <span class="team-total">{{ selectedInnings.totalRuns }}/{{ selectedInnings.wickets }} ({{ selectedInnings.overs }}.{{ selectedInnings.balls }})</span>
+      </div>
+      <div class="table-scroll">
+        <table class="cricket-table">
+          <thead>
+            <tr>
+              <th class="left-align name-col">Batter</th>
+              <th class="left-align dismiss-col">Dismissal</th>
+              <th>R</th>
+              <th>B</th>
+              <th>4s</th>
+              <th>6s</th>
+              <th>SR</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let bat of selectedInnings.battingScorecard"
+                [ngClass]="{
+                  'not-out-row': !bat.isOut && bat.balls > 0,
+                  'out-row': bat.isOut
+                }">
+              <td class="player-name-cell">
+                <span *ngIf="bat.isOnStrike && !bat.isOut" class="on-strike-badge">⚡</span>
+                {{ bat.player.name }}
+              </td>
+              <td class="dismissal-cell">
+                <span *ngIf="!bat.isOut && bat.balls > 0" class="not-out-label">not out</span>
+                <span *ngIf="!bat.isOut && bat.balls === 0 && selectedInnings.isComplete" class="dnb-label">did not bat</span>
+                <span *ngIf="bat.isOut" class="dismissal-text">{{ bat.dismissal }}</span>
+              </td>
+              <td class="score-cell"
+                  [ngClass]="{'century-score': bat.runs >= 100, 'fifty-score': bat.runs >= 50 && bat.runs < 100}">
+                <strong>{{ bat.runs }}</strong>
+              </td>
+              <td class="score-cell">{{ bat.balls }}</td>
+              <td class="score-cell">{{ bat.fours }}</td>
+              <td class="score-cell">{{ bat.sixes }}</td>
+              <td class="score-cell">{{ bat.balls > 0 ? bat.strikeRate : '-' }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="extras-row">
+              <td class="left-align" colspan="2">Extras</td>
+              <td colspan="5">
+                {{ selectedInnings.extras.total }}
+                (b {{ selectedInnings.extras.byes }}, lb {{ selectedInnings.extras.legByes }}, w {{ selectedInnings.extras.wides }}, nb {{ selectedInnings.extras.noBalls }})
+              </td>
+            </tr>
+            <tr class="total-row">
+              <td class="left-align" colspan="2">
+                <strong>TOTAL</strong>
+                <span class="total-sub">{{ selectedInnings.isComplete ? ' (All Out)' : ' (' + selectedInnings.wickets + ' wkts)' }}</span>
+              </td>
+              <td colspan="5">
+                <strong>{{ selectedInnings.totalRuns }}</strong>
+                <span class="total-sub"> ({{ selectedInnings.overs }}.{{ selectedInnings.balls }} Ov, RR: {{ selectedInnings.runRate }})</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Fall of Wickets -->
+    <div class="fow-block" *ngIf="selectedInnings.fallOfWickets.length > 0">
+      <span class="fow-header">Fall of Wickets:</span>
+      <span *ngFor="let fow of selectedInnings.fallOfWickets; let last = last" class="fow-entry">
+        <strong>{{ fow.score }}-{{ fow.wicketNumber }}</strong>
+        <span class="fow-name">({{ fow.playerName }}, {{ fow.overs }} ov)</span>
+        <span *ngIf="!last">&nbsp;|&nbsp;</span>
+      </span>
+    </div>
+
+    <!-- Bowling Table -->
+    <div class="scorecard-block">
+      <div class="block-header">
+        <span>⚾</span>
+        <span>{{ selectedInnings.bowlingTeam }} Bowling</span>
+      </div>
+      <div class="table-scroll">
+        <table class="cricket-table">
+          <thead>
+            <tr>
+              <th class="left-align name-col">Bowler</th>
+              <th>O</th>
+              <th>M</th>
+              <th>R</th>
+              <th>W</th>
+              <th>Eco</th>
+              <th>NB</th>
+              <th>Wd</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let bowl of selectedInnings.bowlingFigures; let last = last"
+                [ngClass]="{
+                  'five-wickets': bowl.wickets >= 5,
+                  'four-wickets': bowl.wickets >= 4 && bowl.wickets < 5,
+                  'current-bowler-row': last && match.status === 'Live' && selectedInningsIndex === match.currentInningsIndex
+                }">
+              <td class="player-name-cell">{{ bowl.player.name }}</td>
+              <td class="score-cell">{{ bowl.overs }}</td>
+              <td class="score-cell">{{ bowl.maidens }}</td>
+              <td class="score-cell">{{ bowl.runs }}</td>
+              <td class="score-cell" [ngClass]="{'wicket-highlight': bowl.wickets >= 3}">
+                <strong>{{ bowl.wickets }}/{{ bowl.runs }}</strong>
+              </td>
+              <td class="score-cell">{{ bowl.economy }}</td>
+              <td class="score-cell">{{ bowl.noBalls }}</td>
+              <td class="score-cell">{{ bowl.wides }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="back-nav">
+    <a routerLink="/" class="back-link">← Back to All Matches</a>
+  </div>
+</div>
+
+<div class="no-match-msg" *ngIf="!match">
+  <div class="no-match-card">
+    <p>Match not found.</p>
+    <a routerLink="/">← Back to Matches</a>
+  </div>
+</div>
